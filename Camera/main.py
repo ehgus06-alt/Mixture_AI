@@ -52,9 +52,26 @@ def send_event_payload(device_id, event_type, sensor_vibrator=True, sensor_radar
     #     print(f"[오류] 서버 전송 실패: {e}")
 
 def main():
-    # 모델 로드: Nano(n) 모델이 가려짐에 약하므로 Medium(m) 모델로 체급을 올려 인식률을 높입니다.
-    print("YOLO-Pose Medium 모델을 불러오는 중입니다... (가려짐 인식 강화)")
-    model = YOLO("yolov8m-pose.pt")
+    # [YOLO11 Pose 업그레이드 및 NCNN 가속 지원]
+    # 라즈베리파이에서 속도를 극대화하기 위해 NCNN 모델 폴더가 존재하면 먼저 로드하고,
+    # 없으면 기본 PyTorch 모델(.pt)을 로드합니다.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ncnn_model_path = os.path.join(script_dir, "yolo11s-pose_ncnn_model")
+    pt_model_path = os.path.join(script_dir, "yolo11s-pose.pt")
+    
+    if os.path.exists(ncnn_model_path):
+        model_name = ncnn_model_path
+        print(f"최적화된 NCNN 모델을 감지했습니다. NCNN 엔진으로 로드합니다: {model_name}")
+    elif os.path.exists(pt_model_path):
+        model_name = pt_model_path
+        print(f"로컬 PyTorch 모델을 감지하여 로드합니다: {model_name}")
+    else:
+        # 파일이 없을 경우 ultralytics가 자동으로 기본 모델을 다운로드하도록 처리
+        model_name = "yolo11s-pose.pt"
+        print(f"YOLO11 Pose 모델을 불러오는 중입니다: {model_name}")
+        print("💡 팁: 라즈베리파이에서 속도를 극대화하려면 'python export_model.py'를 실행해 NCNN 포맷으로 변환해 보세요!")
+        
+    model = YOLO(model_name)
     
     # 영상 소스 설정
     video_source = "hello.mp4"
