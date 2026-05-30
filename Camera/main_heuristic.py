@@ -69,11 +69,16 @@ def main():
         
     model = YOLO(model_name)
     
-    video_source = "test.mp4"
+    # [수정] Lepton 3.0 카메라 인덱스 설정 (UVC 캡처 보드 또는 V4L2 드라이버 기준 보통 0번)
+    video_source = 0
     cap = cv2.VideoCapture(video_source)
     
+    # Lepton 3.0 고유 해상도 (160x120) 설정
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
+    
     if not cap.isOpened():
-        print("비디오 소스를 열 수 없습니다.")
+        print(f"[{video_source}]번 카메라(Lepton) 소스를 열 수 없습니다.")
         return
 
     fall_frame_count = 0
@@ -89,7 +94,16 @@ def main():
     while True:
         success, frame = cap.read()
         if not success:
+            print("카메라에서 프레임을 읽어올 수 없습니다.")
             break
+            
+        # [추가] 열화상 카메라 프레임 전처리
+        # 프레임이 1채널(흑백)일 경우 YOLO 처리를 위해 3채널(BGR)로 변환
+        if len(frame.shape) == 2 or frame.shape[2] == 1:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            
+        # 160x120 해상도는 너무 작아 객체 인식 및 결과 확인이 어려우므로 640x480으로 확대
+        frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
             
         results = model.track(frame, conf=0.20, persist=True, verbose=False)
         
