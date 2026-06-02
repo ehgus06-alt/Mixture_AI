@@ -109,15 +109,20 @@ def main():
             print("카메라에서 프레임을 읽어올 수 없습니다.")
             break
             
-        # [추가] 열화상 카메라 프레임 전처리
-        # 프레임이 1채널(흑백)일 경우 YOLO 처리를 위해 3채널(BGR)로 변환
+        # [추가] 라즈베리파이 연산 부하 최소화를 위한 흑백 처리
+        # 카메라에서 3채널 BGR로 들어올 경우 강제로 흑백(Grayscale)으로 변환
+        if len(frame.shape) == 3 and frame.shape[2] == 3:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+        # YOLO 모델은 3채널 입력이 필요하므로 1채널 흑백을 3채널로 복제
         if len(frame.shape) == 2 or frame.shape[2] == 1:
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
             
-        # 160x120 해상도는 너무 작아 객체 인식 및 결과 확인이 어려우므로 640x480으로 확대
-        frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
+        # 기존 640x480 확대는 라즈베리파이에 과부하를 주므로 320x240으로 해상도 축소
+        frame = cv2.resize(frame, (320, 240), interpolation=cv2.INTER_LINEAR)
             
-        results = model.track(frame, conf=0.20, persist=True, verbose=False)
+        # imgsz=320 파라미터를 추가해 추론 연산량(GFLOPs) 대폭 감소
+        results = model.track(frame, conf=0.20, persist=True, verbose=False, imgsz=320)
         
         fall_detected_in_current_frame = False
         annotated_frame = results[0].plot(boxes=False)
@@ -182,15 +187,15 @@ def main():
 
                 if is_fallen:
                     fall_detected_in_current_frame = True
-                    cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 4)
+                    cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
                     label = f"ID:{track_id} FALLEN!" if track_id else "FALLEN!"
                     cv2.putText(annotated_frame, label, (int(x1), int(y1) - 10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 3, cv2.LINE_AA)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
                 else:
                     cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                     label = f"ID:{track_id} STANDING" if track_id else "STANDING"
                     cv2.putText(annotated_frame, label, (int(x1), int(y1) - 10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2, cv2.LINE_AA)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
         
         new_state = "UNKNOWN"
         if len(results) == 0 or results[0].boxes is None or len(results[0].boxes) == 0:
@@ -209,10 +214,10 @@ def main():
                 new_state = current_state 
 
         if new_state == "DANGER":
-            cv2.putText(annotated_frame, "WARNING: FAST FALL DETECTED!!", (30, 80), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4, cv2.LINE_AA)
+            cv2.putText(annotated_frame, "WARNING: FALL DETECTED!!", (10, 40), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
             if fall_frame_count % 2 == 0:
-                cv2.rectangle(annotated_frame, (0, 0), (annotated_frame.shape[1], annotated_frame.shape[0]), (0, 0, 255), 10)
+                cv2.rectangle(annotated_frame, (0, 0), (annotated_frame.shape[1], annotated_frame.shape[0]), (0, 0, 255), 5)
                 
         if current_state != new_state:
             # 상태가 UNKNOWN이 아니면(즉, SAFE나 DANGER면) 열화상 카메라가 객체를 인식한 것으로 간주
