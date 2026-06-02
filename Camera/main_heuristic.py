@@ -49,8 +49,6 @@ def send_event_payload(device_id, event_type, sensor_vibrator=True, sensor_radar
 
 def main():
     print("[휴리스틱 기법] YOLO11-Pose 기반 다이나믹 키포인트 추적 버전을 불러옵니다...")
-<<<<<<< HEAD
-=======
     
     # [YOLO11 Pose 업그레이드 및 NCNN 가속 지원]
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -70,7 +68,6 @@ def main():
         print("💡 팁: 라즈베리파이에서 속도를 극대화하려면 'python export_model.py'를 실행해 NCNN 포맷으로 변환해 보세요!")
         
     model = YOLO(model_name)
->>>>>>> 43ff330 (updated)
     
     # [YOLO11 Pose 업그레이드 및 NCNN 가속 지원]
     script_dir = os.path.dirname(os.path.abspath(__file__))
