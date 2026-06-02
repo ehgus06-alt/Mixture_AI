@@ -7,24 +7,32 @@ from datetime import datetime, timezone
 import platform
 import os
 import requests
+import uuid
+import socket
+import psutil
 
-def get_device_model():
+def get_mac_address():
     try:
-        with open('/sys/firmware/devicetree/base/model', 'r') as f:
-            return f.read().strip('\x00').strip()
+        # 활성화된 인터넷 연결의 로컬 IP를 가져옴
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        
+        # 해당 IP가 할당된 네트워크 어댑터의 MAC 주소를 추출
+        for interface, addrs in psutil.net_if_addrs().items():
+            if any(addr.address == local_ip for addr in addrs):
+                for addr in addrs:
+                    if ('-' in addr.address or ':' in addr.address) and len(addr.address) == 17:
+                        return addr.address.replace('-', ':').upper()
     except Exception:
         pass
-    
-    os_name = platform.system()
-    if os_name == "Windows":
-        return f"Windows_PC_{platform.node()}"
-    elif os_name == "Linux":
-        return f"Linux_PC_{platform.node()}"
-    elif os_name == "Darwin":
-        return f"Mac_{platform.node()}"
-    return "Unknown_Device"
+        
+    # 실패할 경우 기존 방식으로 Fallback
+    mac = uuid.getnode()
+    return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
 
-def send_event_payload(device_id, event_type, sensor_vibrator=True, sensor_radar=True, sensor_thermal=True):
+def send_event_payload(device_id, event_type, sensor_vibrator=False, sensor_radar=False, sensor_thermal=False):
     payload = {
         "device_id": device_id,
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -41,11 +49,11 @@ def send_event_payload(device_id, event_type, sensor_vibrator=True, sensor_radar
     print(json.dumps(payload, indent=2, ensure_ascii=False))
     print(f"==================================================\n")
     
-    # 서버가 없으므로 실제 전송 코드는 주석 처리해두었습니다. (불필요한 에러 로그 방지)
-    # try:
-    #     response = requests.post("http://your-backend-server.com/api/event", json=payload)
-    # except Exception as e:
-    #     pass
+     #서버가 없으므로 실제 전송 코드는 주석 처리해두었습니다. (불필요한 에러 로그 방지)
+    try:
+        response = requests.post("http://192.168.1.154:8080/api/device/data", json=payload)
+    except Exception as e:
+        pass
 
 def main():
     print("[휴리스틱 기법] YOLO11-Pose 기반 다이나믹 키포인트 추적 버전을 불러옵니다...")
@@ -103,7 +111,7 @@ def main():
     fall_frame_count = 0
     FALL_THRESHOLD = 3
     
-    device_id = get_device_model()
+    device_id = get_mac_address()
     current_state = "UNKNOWN"
     
     # ID별 이력 저장을 위한 딕셔너리 (aspect_ratio, center_y, height 저장)
@@ -222,7 +230,9 @@ def main():
                 cv2.rectangle(annotated_frame, (0, 0), (annotated_frame.shape[1], annotated_frame.shape[0]), (0, 0, 255), 10)
                 
         if current_state != new_state:
-            send_event_payload(device_id, new_state)
+            # 상태가 UNKNOWN이 아니면(즉, SAFE나 DANGER면) 열화상 카메라가 객체를 인식한 것으로 간주
+            is_thermal_detected = (new_state != "UNKNOWN")
+            send_event_payload(device_id, new_state, sensor_thermal=is_thermal_detected)
             current_state = new_state
 
         cv2.imshow("Heuristic Fall Detection", annotated_frame)
