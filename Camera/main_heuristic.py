@@ -58,14 +58,18 @@ def send_event_payload(device_id, event_type, sensor_vibrator=False, sensor_rada
 def main():
     print("[휴리스틱 기법] YOLO11-Pose 기반 다이나믹 키포인트 추적 버전을 불러옵니다...")
     
-    # [YOLO11 Pose 업그레이드 및 NCNN 가속 지원]
+    # [YOLO11 Pose 업그레이드 및 NCNN/ONNX 가속 지원]
     script_dir = os.path.dirname(os.path.abspath(__file__))
     ncnn_model_path = os.path.join(script_dir, "yolo11s-pose_ncnn_model")
+    onnx_model_path = os.path.join(script_dir, "yolo11s-pose.onnx")
     pt_model_path = os.path.join(script_dir, "yolo11s-pose.pt")
     
     if os.path.exists(ncnn_model_path):
         model_name = ncnn_model_path
         print(f"최적화된 NCNN 모델을 감지했습니다. NCNN 엔진으로 로드합니다: {model_name}")
+    elif os.path.exists(onnx_model_path):
+        model_name = onnx_model_path
+        print(f"ONNX 모델을 감지했습니다. ONNX 엔진으로 로드합니다: {model_name}")
     elif os.path.exists(pt_model_path):
         model_name = pt_model_path
         print(f"로컬 PyTorch 모델을 감지하여 로드합니다: {model_name}")
@@ -73,26 +77,7 @@ def main():
         # 파일이 없을 경우 ultralytics가 자동으로 기본 모델을 다운로드하도록 처리
         model_name = "yolo11s-pose.pt"
         print(f"YOLO11 Pose 모델을 불러오는 중입니다: {model_name}")
-        print("💡 팁: 라즈베리파이에서 속도를 극대화하려면 'python export_model.py'를 실행해 NCNN 포맷으로 변환해 보세요!")
-        
-    model = YOLO(model_name)
-    
-    # [YOLO11 Pose 업그레이드 및 NCNN 가속 지원]
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    ncnn_model_path = os.path.join(script_dir, "yolo11s-pose_ncnn_model")
-    pt_model_path = os.path.join(script_dir, "yolo11s-pose.pt")
-    
-    if os.path.exists(ncnn_model_path):
-        model_name = ncnn_model_path
-        print(f"최적화된 NCNN 모델을 감지했습니다. NCNN 엔진으로 로드합니다: {model_name}")
-    elif os.path.exists(pt_model_path):
-        model_name = pt_model_path
-        print(f"로컬 PyTorch 모델을 감지하여 로드합니다: {model_name}")
-    else:
-        # 파일이 없을 경우 ultralytics가 자동으로 기본 모델을 다운로드하도록 처리
-        model_name = "yolo11s-pose.pt"
-        print(f"YOLO11 Pose 모델을 불러오는 중입니다: {model_name}")
-        print("💡 팁: 라즈베리파이에서 속도를 극대화하려면 'python export_model.py'를 실행해 NCNN 포맷으로 변환해 보세요!")
+        print("💡 팁: 라즈베리파이에서 속도를 극대화하려면 'python export_model.py'를 실행해 NCNN/ONNX 포맷으로 변환해 보세요!")
         
     model = YOLO(model_name)
     
